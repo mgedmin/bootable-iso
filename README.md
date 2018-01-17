@@ -2,7 +2,7 @@ Bootable USB disk that lets you choose an ISO image
 ===================================================
 
 This is basically a newer iteration on
-http://mg.pov.lt/blog/booting-iso-from-usb.html
+https://mg.pov.lt/blog/booting-iso-from-usb.html
 
 Creating a bootable USB disk that lets you boot any Ubuntu ISO image:
 
