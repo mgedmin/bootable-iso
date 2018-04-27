@@ -53,13 +53,8 @@ Testing with KVM
 
     ```
     sudo setfacl -m user:mg:rw
-    kvm -m 2048 -drive format=raw,file=/dev/sdb
+    kvm -m 2048 -k en-us -drive format=raw,file=/dev/sdb
     ```
-
-   You need at least 2 GB of RAM.
-
-   Note: arrow keys do not work on Ubuntu 17.10, but you can use Ctrl-N/Ctrl-P
-   to select GRUB menu entries.
 
 3. When you're done testing, mount the device again with
 
