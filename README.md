@@ -6,10 +6,10 @@ https://mg.pov.lt/blog/booting-iso-from-usb.html
 
 Creating a bootable USB disk that lets you boot any Ubuntu ISO image:
 
-1. Mount a USB disk with a sufficient amount of free space.  Note the device
+#. Mount a USB disk with a sufficient amount of free space.  Note the device
    name (e.g. `/dev/sdb`) and the mount point (e.g. `/media/mg/MG-FLASH`).
 
-1. Install GRUB:
+#. Install GRUB:
 
     ```
     sudo grub-install --root-directory=/media/mg/MG-FLASH /dev/sdb
@@ -17,7 +17,17 @@ Creating a bootable USB disk that lets you boot any Ubuntu ISO image:
 
    (you may have to also use `--force`)
 
-2. Download Ubuntu ISO images you want
+#. Perhaps also install an UEFI bootloader
+
+    ```
+    sudo grub-install --target=x86_64-efi --removable \
+                      --root-directory=/media/mg/MG-FLASH \
+                      --efi-directory=/media/mg/MG-FLASH /dev/sdb
+    ```
+
+    (this is totally untested)
+
+#. Download Ubuntu ISO images you want
 
     ```
     cd /media/mg/MG-FLASH
@@ -26,37 +36,37 @@ Creating a bootable USB disk that lets you boot any Ubuntu ISO image:
     make verify-all
     ```
 
-3. Check out this repository (this is tricky because git doesn't want to check
+#. Check out this repository (this is tricky because git doesn't want to check
    out things into an existing non-empty directory)
 
     ```
-    git clone https://github.com/mgedmin/bootable-iso /tmp/
+    git clone https://github.com/mgedmin/bootable-iso /tmp/bootable-iso
     mv /tmp/bootable-iso/.git /media/mg/MG-FLASH/boot/grub/
     mv /tmp/bootable-iso/* /media/mg/MG-FLASH/boot/grub/
     ```
 
-4. Edit `/media/mg/MG-FLASH/boot/grub/grub.cfg` so it matches your Ubuntu images
+#. Edit `/media/mg/MG-FLASH/boot/grub/grub.cfg` so it matches your Ubuntu images
 
-5. Test that things work
+#. Test that things work
 
 
 Testing with KVM
 ----------------
 
-1. Unmount the device
+#. Unmount the device
 
     ```
     udisksctl unmount -b /dev/sdb1
     ```
 
-2. Boot it in KVM
+#. Boot it in KVM
 
     ```
     sudo setfacl -m user:mg:rw
     kvm -m 2048 -k en-us -drive format=raw,file=/dev/sdb
     ```
 
-3. When you're done testing, mount the device again with
+#. When you're done testing, mount the device again with
 
     ```
     udisksctl mount -b /dev/sdb1
