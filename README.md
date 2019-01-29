@@ -62,7 +62,7 @@ Testing with KVM
 #. Boot it in KVM
 
     ```
-    sudo setfacl -m user:mg:rw
+    sudo setfacl -m user:$USER:rw /dev/sdb
     kvm -m 2048 -k en-us -drive format=raw,file=/dev/sdb
     ```
 
