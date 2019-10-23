@@ -82,6 +82,7 @@ Adding new boot menu entries
    inside.
 5. Locate the `boot/grub/grub.cfg` file inside the ISO image.
 6. Copy the kernel command-line arguments exactly.
-7. For desktop ISO images add `iso-scan/filename=$isofile` on the kernel
-   command line, before `--` or `---`.  For some reason server ISO images don't
-   need this (at least the ones using debian-installer, i.e. before 18.04 LTS).
+7. Add `iso-scan/filename=$isofile` on the kernel command line,
+   before `--` or `---`.  (This works for images using casper, i.e. Ubuntu
+   desktop and live-server ISOs.  Server ISOs that use debian-installer don't
+   actually work at all booted through grub's loopback.)
