@@ -12,7 +12,8 @@ Creating a bootable USB disk that lets you boot any Ubuntu ISO image:
 #. Install GRUB:
 
     ```
-    sudo grub-install --root-directory=/media/mg/MG-FLASH /dev/sdb
+    sudo grub-install --target=i386-pc \
+                      --root-directory=/media/mg/MG-FLASH /dev/sdb
     ```
 
    (you may have to also use `--force`)
@@ -24,8 +25,6 @@ Creating a bootable USB disk that lets you boot any Ubuntu ISO image:
                       --root-directory=/media/mg/MG-FLASH \
                       --efi-directory=/media/mg/MG-FLASH /dev/sdb
     ```
-
-    (this is totally untested)
 
 #. Download Ubuntu ISO images you want
 
