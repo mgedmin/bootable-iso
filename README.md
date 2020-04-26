@@ -6,10 +6,10 @@ https://mg.pov.lt/blog/booting-iso-from-usb.html
 
 Creating a bootable USB disk that lets you boot any Ubuntu ISO image:
 
-#. Mount a USB disk with a sufficient amount of free space.  Note the device
+1. Mount a USB disk with a sufficient amount of free space.  Note the device
    name (e.g. `/dev/sdb`) and the mount point (e.g. `/media/mg/MG-FLASH`).
 
-#. Install GRUB:
+2. Install GRUB:
 
     ```
     sudo grub-install --target=i386-pc \
@@ -18,7 +18,7 @@ Creating a bootable USB disk that lets you boot any Ubuntu ISO image:
 
    (you may have to also use `--force`)
 
-#. Perhaps also install an UEFI bootloader
+3. Perhaps also install an UEFI bootloader
 
     ```
     sudo grub-install --target=x86_64-efi --removable \
@@ -26,16 +26,17 @@ Creating a bootable USB disk that lets you boot any Ubuntu ISO image:
                       --efi-directory=/media/mg/MG-FLASH /dev/sdb
     ```
 
-#. Download Ubuntu ISO images you want
+4. Download Ubuntu ISO images you want
 
     ```
     cd /media/mg/MG-FLASH
     git clone https://github.com/mgedmin/ubuntu-images ubuntu
     cd ubuntu
+    # maybe edit the Makefile to pick what Ubuntu versions and variants you want
     make verify-all
     ```
 
-#. Check out this repository (this is tricky because git doesn't want to check
+5. Check out this repository (this is tricky because git doesn't want to check
    out things into an existing non-empty directory)
 
     ```
@@ -44,44 +45,47 @@ Creating a bootable USB disk that lets you boot any Ubuntu ISO image:
     mv /tmp/bootable-iso/* /media/mg/MG-FLASH/boot/grub/
     ```
 
-#. Edit `/media/mg/MG-FLASH/boot/grub/grub.cfg` so it matches your Ubuntu images
+6. Run `make -C /media/mg/MG-FLASH/boot/grub/` to build a `grub.cfg` that
+   matches your Ubuntu images
 
-#. Test that things work
+7. Test that things work
 
 
 Testing with KVM
 ----------------
 
-#. Unmount the device
+1. Find the device name
+
+    ```
+    udisksctl status
+    ```
+
+2. Unmount the device
 
     ```
     udisksctl unmount -b /dev/sdb1
     ```
 
-#. Boot it in KVM
+3. Boot it in KVM
 
     ```
     sudo setfacl -m user:$USER:rw /dev/sdb
     kvm -m 2048 -k en-us -drive format=raw,file=/dev/sdb
     ```
 
-#. When you're done testing, mount the device again with
+4. When you're done testing, mount the device again with
 
     ```
     udisksctl mount -b /dev/sdb1
     ```
 
+
 Adding new boot menu entries
 ----------------------------
 
-1. Edit `grub.cfg`.
-2. Copy an existing menu/submenu that is similar.
-3. Change version numbers.
-4. Launch `mc` (Midnight Commander), find the ISO image, press Enter to look
+1. Edit `mkgrubcfg.py`.
+2. Find the `KNOWN_COMMAND_LINES` mapping.
+3. Launch `mc` (Midnight Commander), find the ISO image, press Enter to look
    inside.
-5. Locate the `boot/grub/grub.cfg` file inside the ISO image.
-6. Copy the kernel command-line arguments exactly.
-7. Add `iso-scan/filename=$isofile` on the kernel command line,
-   before `--` or `---`.  (This works for images using casper, i.e. Ubuntu
-   desktop and live-server ISOs.  Server ISOs that use debian-installer don't
-   actually work at all booted through grub's loopback.)
+4. Locate the `boot/grub/grub.cfg` file inside the ISO image.
+5. Copy the kernel command-line arguments.
