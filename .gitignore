@@ -7,3 +7,4 @@ grubenv
 *.img
 *.o
 *.lst
+grub.cfg
