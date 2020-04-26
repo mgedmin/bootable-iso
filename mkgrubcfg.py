@@ -235,14 +235,22 @@ def print_groups(groups):
 def main():
     parser = argparse.ArgumentParser(description="create a grub.cfg for Ubuntu ISO images")
     parser.add_argument("--list", action='store_true', help='list found ISO images')
-    parser.add_argument("-d", "--iso-dir", metavar='DIR', default="../../ubuntu", help="directory with ISO images (default: %(default)s)")
+    parser.add_argument("-d", "--iso-dir", metavar='DIR', default="../../ubuntu",
+                        help="directory with ISO images (default: %(default)s)")
+    parser.add_argument("-o", metavar='FILENAME', dest='outfile', default="-",
+                        help="write the generated grub.cfg to this file (default: stdout)")
     args = parser.parse_args()
     iso_files = find_iso_files(args.iso_dir)
     groups = group_files(iso_files)
     if args.list:
         print_groups(groups)
+        return
+    grub_cfg = make_grub_cfg(groups)
+    if args.outfile != '-':
+        with open(args.outfile, 'w') as f:
+            f.write(grub_cfg)
     else:
-        print(make_grub_cfg(groups), end="")
+        print(grub_cfg, end="")
 
 
 if __name__ == "__main__":
