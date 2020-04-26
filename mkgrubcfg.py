@@ -52,17 +52,19 @@ KNOWN_COMMAND_LINES = {
     },
 }
 
+KVM_OK = "Tested in KVM, works"
+KVM_DESKTOP_OK = "Tested in KVM, works (boots into live session)"
+KVM_SERVER_OK = "Tested in KVM, works (boots, haven't tried to complete installation)"
 TEST_STATUS = {
-    'ubuntu-19.10-desktop-amd64.iso': [
-        'Tested in KVM, works (boots into live session)',
-    ],
-    'ubuntu-18.04.3-desktop-amd64.iso': [
-        'Tested in KVM, works (boots into live session)',
-    ],
-    'ubuntu-18.04.3-live-server-amd64.iso': [
-        "Tested in KVM, works (with some scary-looking weird messages during boot)",
-        "(at least I get the installer; haven't tried to complete the installation)",
-    ],
+    'ubuntu-20.04-desktop-amd64.iso': KVM_OK,
+    'ubuntu-20.04-live-server-amd64.iso': KVM_OK,
+    'ubuntu-19.10-desktop-amd64.iso': KVM_DESKTOP_OK,
+    'ubuntu-18.04.3-desktop-amd64.iso': KVM_DESKTOP_OK,
+    'ubuntu-18.04.4-desktop-amd64.iso': KVM_DESKTOP_OK,
+    'ubuntu-18.04.3-live-server-amd64.iso': KVM_OK,
+    'ubuntu-18.04.4-live-server-amd64.iso': KVM_OK,
+    'ubuntu-16.04.6-desktop-i386.iso': KVM_DESKTOP_OK,
+    'ubuntu-16.04.6-server-amd64.iso': 'Does not work',
 }
 
 ENTRY = """
@@ -199,7 +201,14 @@ def mktitle(isofile):
 
 
 def mkteststatus(isofile):
-    return '\n    # '.join(TEST_STATUS.get(isofile, ['Untested']))
+    return '\n    # '.join(get_test_status(isofile))
+
+
+def get_test_status(isofile):
+    test_status = TEST_STATUS.get(isofile, 'Untested')
+    if not isinstance(test_status, list):
+        test_status = [test_status]
+    return test_status
 
 
 def mkcomment(isofile):
@@ -229,7 +238,10 @@ def print_groups(groups):
         if not isinstance(group, list):
             group = [group]
         print(f'# {mkgrouptitle(group)}')
-        print(*group, sep='\n')
+        for isofile in group:
+            width = 40
+            test_status = f'{" ":<{width}}  # '.join(get_test_status(isofile))
+            print(f'{isofile:<{width}}  # {test_status}')
 
 
 def main():
