@@ -1,5 +1,9 @@
 #!/usr/bin/python3
 
+import argparse
+import os
+
+
 HEADER = """
 #
 # Notes for adding new entries:
@@ -19,12 +23,33 @@ HEADER = """
 """.lstrip()
 
 ARCHS = {
+    'i386': 'x86',
     'amd64': 'x86-64',
 }
 
 VARIANTS = {
     'desktop': 'desktop livecd',
     'live-server': 'server livecd',
+}
+
+KNOWN_COMMAND_LINES = {
+    'ubuntu-16.04.6-server-amd64.iso': 'file=/cdrom/preseed/ubuntu-server.seed boot=casper quiet ---',
+    'ubuntu-16.04.6-desktop-amd64.iso': 'file=/cdrom/preseed/ubuntu.seed boot=casper quiet splash ---',
+    'ubuntu-16.04.6-desktop-i386.iso': 'file=/cdrom/preseed/ubuntu.seed boot=casper quiet splash ---',
+    'ubuntu-18.04.3-live-server-amd64.iso': 'boot=casper quiet ---',
+    'ubuntu-18.04.4-live-server-amd64.iso': 'boot=casper quiet ---',
+    'ubuntu-18.04.3-desktop-amd64.iso': 'file=/cdrom/preseed/ubuntu.seed boot=casper quiet splash ---',
+    'ubuntu-18.04.4-desktop-amd64.iso': 'file=/cdrom/preseed/ubuntu.seed boot=casper quiet splash ---',
+    'ubuntu-19.10-desktop-amd64.iso': 'file=/cdrom/preseed/ubuntu.seed boot=casper quiet splash ---',
+    'ubuntu-20.04-live-server-amd64.iso': {
+        None: 'quiet ---',
+        'safe graphics': 'quiet nomodeset ---',
+    },
+    'ubuntu-20.04-desktop-amd64.iso': {
+        None: 'file=/cdrom/preseed/ubuntu.seed maybe-ubiquity quiet splash ---',
+        'safe graphics': 'file=/cdrom/preseed/ubuntu.seed maybe-ubiquity quiet splash nomodeset ---',
+        # there's also an OEM install option that adds oem-config/enable=true and replaces maybe-ubiquity with only-ubiquity
+    },
 }
 
 TEST_STATUS = {
@@ -47,7 +72,7 @@ menuentry "{title}" {{
     loopback loop $isofile
     # {comment}
     linux (loop)/casper/vmlinuz iso-scan/filename=$isofile {cmdline}
-    initrd (loop)/casper/initrd
+    initrd (loop)/casper/{initrd}
 }}
 
 """.lstrip()
@@ -113,21 +138,58 @@ FOOTER = """
 ##} # end of submenu
 
 menuentry "Memory test (memtest86+)" {
-    linux16 /boot/memtest86+.bin
+    linux16 /boot/mt86plus
 }
 """
 
 
-def make_grub_cfg():
-    return (
-        HEADER
-        + mkentry('ubuntu-19.10-desktop-amd64.iso')
-        + mksubmenu('Ubuntu 18.04 LTS', [
-            mkentry('ubuntu-18.04.3-desktop-amd64.iso'),
-            mkentry('ubuntu-18.04.3-live-server-amd64.iso'),
-        ])
-        + FOOTER
-    )
+def find_iso_files(where):
+    return sorted(
+        sorted(fn for fn in os.listdir(where) if fn.endswith('.iso')),
+        key=lambda fn: fn.split('-')[:2],
+        reverse=True)
+
+
+def group_files(files):
+    groups = []
+    current = []
+    current_prefix = None
+    for file in files:
+        prefix = file[:len('ubuntu-XX.YY')]
+        if prefix == current_prefix:
+            current.append(file)
+        else:
+            if len(current) == 1:
+                groups.extend(current)
+            elif current:
+                groups.append(current)
+            current_prefix = prefix
+            current = [file]
+    if len(current) == 1:
+        groups.extend(current)
+    elif current:
+        groups.append(current)
+    return groups
+
+
+def make_grub_cfg(entries):
+    parts = [HEADER]
+    for entry in entries:
+        if isinstance(entry, list):
+            title = mkgrouptitle(entry)
+            parts.append(mksubmenu(title, map(mkentry, entry)))
+        else:
+            parts.append(mkentry(entry))
+    parts.append(FOOTER)
+    return ''.join(parts)
+
+
+def mkgrouptitle(isofiles):
+    # ubuntu-XX.XX-variant-arch.iso
+    ubuntu, release, rest = isofiles[0].rpartition('.')[0].split('-', 2)
+    if is_lts(release):
+        release += ' LTS'
+    return f'Ubuntu {release}'
 
 
 def mksubmenu(title, entries):
@@ -144,6 +206,7 @@ def mkentry(isofile):
         test_status=mkteststatus(isofile),
         comment=mkcomment(isofile),
         cmdline=mkcmdline(isofile),
+        initrd='initrd',  # some older releases had initrd.gz
     ).replace('\n    # \n', '\n')  # remove empty comments
 
 
@@ -157,7 +220,7 @@ def mktitle(isofile):
 
 
 def mkteststatus(isofile):
-    return '\n    # '.join(TEST_STATUS.get(isofile, 'Untested'))
+    return '\n    # '.join(TEST_STATUS.get(isofile, ['Untested']))
 
 
 def mkcomment(isofile):
@@ -167,11 +230,11 @@ def mkcomment(isofile):
 
 
 def mkcmdline(isofile):
-    if '-desktop-' in isofile:
-        return 'file=/cdrom/preseed/ubuntu.seed boot=casper quiet splash ---'
-    if '-live-server-' in isofile:
-        return 'boot=casper quiet ---'
-    return '---'
+    # too risky to guess
+    cmdline = KNOWN_COMMAND_LINES[isofile]
+    if isinstance(cmdline, dict):
+        cmdline = cmdline[None]
+    return cmdline
 
 
 def is_lts(release):
@@ -182,8 +245,25 @@ def is_lts(release):
     return major % 2 == 0 and minor == 4
 
 
+def print_groups(groups):
+    for group in groups:
+        if not isinstance(group, list):
+            group = [group]
+        print(f'# {mkgrouptitle(group)}')
+        print(*group, sep='\n')
+
+
 def main():
-    print(make_grub_cfg(), end="")
+    parser = argparse.ArgumentParser(description="create a grub.cfg for Ubuntu ISO images")
+    parser.add_argument("--list", action='store_true', help='list found ISO images')
+    parser.add_argument("-d", "--iso-dir", metavar='DIR', default="../../ubuntu", help="directory with ISO images (default: %(default)s)")
+    args = parser.parse_args()
+    iso_files = find_iso_files(args.iso_dir)
+    groups = group_files(iso_files)
+    if args.list:
+        print_groups(groups)
+    else:
+        print(make_grub_cfg(groups), end="")
 
 
 if __name__ == "__main__":
