@@ -85,7 +85,73 @@ Adding new boot menu entries
 
 1. Edit `mkgrubcfg.py`.
 2. Find the `KNOWN_COMMAND_LINES` mapping.
-3. Launch `mc` (Midnight Commander), find the ISO image, press Enter to look
-   inside.
-4. Locate the `boot/grub/grub.cfg` file inside the ISO image.
-5. Copy the kernel command-line arguments.
+3. Run `python3 parseiso.py path/to/your/image.iso` to see the grub.cfg
+4. Copy the kernel command-line arguments
+
+For example,
+
+```
+$ python3 parseiso.py ../../ubuntu/ubuntu-20.04-desktop-amd64.iso
+if loadfont /boot/grub/font.pf2 ; then
+	set gfxmode=auto
+	insmod efi_gop
+	insmod efi_uga
+	insmod gfxterm
+	terminal_output gfxterm
+fi
+
+set menu_color_normal=white/black
+set menu_color_highlight=black/light-gray
+
+set timeout=5
+menuentry "Ubuntu" {
+	set gfxpayload=keep
+	linux	/casper/vmlinuz  file=/cdrom/preseed/ubuntu.seed maybe-ubiquity quiet splash ---
+	initrd	/casper/initrd
+}
+menuentry "Ubuntu (safe graphics)" {
+	set gfxpayload=keep
+	linux	/casper/vmlinuz  file=/cdrom/preseed/ubuntu.seed maybe-ubiquity quiet splash nomodeset ---
+	initrd	/casper/initrd
+}
+menuentry "OEM install (for manufacturers)" {
+	set gfxpayload=keep
+	linux	/casper/vmlinuz  file=/cdrom/preseed/ubuntu.seed only-ubiquity quiet splash oem-config/enable=true ---
+	initrd	/casper/initrd
+}
+grub_platform
+if [ "$grub_platform" = "efi" ]; then
+menuentry 'Boot from next volume' {
+	exit
+}
+menuentry 'UEFI Firmware Settings' {
+	fwsetup
+}
+fi
+```
+
+Find the main menu entry
+
+```
+menuentry "Ubuntu" {
+	set gfxpayload=keep
+	linux	/casper/vmlinuz  file=/cdrom/preseed/ubuntu.seed maybe-ubiquity quiet splash ---
+	initrd	/casper/initrd
+}
+```
+
+Look at the `linux` line
+
+```
+	linux	/casper/vmlinuz  file=/cdrom/preseed/ubuntu.seed maybe-ubiquity quiet splash ---
+```
+
+Convert it to `KNOWN_COMMAND_LINES` in mkgrubcfg.py
+
+```
+KNOWN_COMMAND_LINES = {
+    ...
+    'ubuntu-20.04-desktop-amd64.iso': 'file=/cdrom/preseed/ubuntu.seed maybe-ubiquity quiet splash ---',
+    ...
+}
+```
