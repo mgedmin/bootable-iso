@@ -1,4 +1,17 @@
 #!/usr/bin/python3
+"""
+Extract a file (usually /boot/grub/grub.cfg) from an ISO image or list
+directory contents.
+
+Examples:
+
+    python3 parseiso.py filename.iso --ls /
+    python3 parseiso.py filename.iso --ls /boot/grub
+    python3 parseiso.py filename.iso --path /boot/grub/grub.cfg
+    python3 parseiso.py filename.iso --path /md5sum.txt
+    python3 parseiso.py --help
+
+"""
 
 import argparse
 import enum
@@ -326,7 +339,8 @@ def main():
     parser.add_argument(
         "isofile", nargs='+', help="the ISO image file you want to inspect")
     parser.add_argument(
-        "--path", default='/BOOT/GRUB/GRUB.CFG;1', help="filename of the file you want to extract")
+        "--path", default='/boot/grub/grub.cfg',
+        help="filename of the file you want to extract (default: %(default)s)")
     parser.add_argument(
         "--ls", metavar='PATH', help="list the contents of this directory")
     args = parser.parse_args()
