@@ -83,10 +83,10 @@ Testing with KVM
 Adding new boot menu entries
 ----------------------------
 
-1. Edit `mkgrubcfg.py`.
-2. Find the `KNOWN_COMMAND_LINES` mapping.
-3. Run `python3 parseiso.py path/to/your/image.iso` to see the grub.cfg
-4. Copy the kernel command-line arguments
+1. Run `python3 parseiso.py path/to/your/image.iso` to see the grub.cfg
+2. Locate the kernel command-line arguments
+3. Edit `mkgrubcfg.py`
+4. Add the new ISO image to the `KNOWN_COMMAND_LINES` mapping
 
 For example,
 
@@ -146,7 +146,7 @@ Look at the `linux` line
 	linux	/casper/vmlinuz  file=/cdrom/preseed/ubuntu.seed maybe-ubiquity quiet splash ---
 ```
 
-Convert it to `KNOWN_COMMAND_LINES` in mkgrubcfg.py
+Convert it to `KNOWN_COMMAND_LINES` in `mkgrubcfg.py`
 
 ```
 KNOWN_COMMAND_LINES = {
