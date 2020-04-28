@@ -1,18 +1,26 @@
 #!/usr/bin/python3
+"""
+Generate a grub.cfg that can boot Ubuntu ISO images.
+
+Works with any Ubuntu ISO image that uses casper
+(http://manpages.ubuntu.com/manpages/focal/man7/casper.7.html), which is every
+desktop and live-server image.
+
+Usage: mkgrubcfg.py -d path/to/directory/with/iso/images -o grub.cfg
+"""
 
 import argparse
 import os
+import re
+import sys
 
 
 HEADER = """
 #
 # Notes for adding new entries:
-# - launch mc, find the iso, press Enter
-# - inside the ISO find /boot/grub/grub.cfg, look inside
-#   be sure to add iso-scan/filename=$isofile before the -- or ---
-#   (some ISOs have a loopback.cfg that already have this)
+# - run python3 mkgrubcfg.py -o grub.cfg
 #
-# Testing in KVM:
+# Testing in KVM (assuming this USB drive is mounted as /dev/sdb1):
 # - udisksctl unmount -b /dev/sdb1
 # - sudo setfacl -m user:$USER:rw /dev/sdb
 # - kvm -m 2048 -k en-us -drive format=raw,file=/dev/sdb
@@ -33,29 +41,16 @@ VARIANTS = {
 }
 
 KNOWN_COMMAND_LINES = {
-    'ubuntu-16.04.6-server-amd64.iso': 'file=/cdrom/preseed/ubuntu-server.seed boot=casper quiet ---',
-    'ubuntu-16.04.6-desktop-amd64.iso': 'file=/cdrom/preseed/ubuntu.seed boot=casper quiet splash ---',
-    'ubuntu-16.04.6-desktop-i386.iso': 'file=/cdrom/preseed/ubuntu.seed boot=casper quiet splash ---',
-    'ubuntu-18.04.3-live-server-amd64.iso': 'boot=casper quiet ---',
-    'ubuntu-18.04.4-live-server-amd64.iso': 'boot=casper quiet ---',
-    'ubuntu-18.04.3-desktop-amd64.iso': 'file=/cdrom/preseed/ubuntu.seed boot=casper quiet splash ---',
-    'ubuntu-18.04.4-desktop-amd64.iso': 'file=/cdrom/preseed/ubuntu.seed boot=casper quiet splash ---',
-    'ubuntu-19.10-desktop-amd64.iso': 'file=/cdrom/preseed/ubuntu.seed boot=casper quiet splash ---',
-    'ubuntu-20.04-live-server-amd64.iso': {
-        None: 'quiet ---',
-        'safe graphics': 'quiet nomodeset ---',
-    },
-    'ubuntu-20.04-desktop-amd64.iso': {
-        None: 'file=/cdrom/preseed/ubuntu.seed maybe-ubiquity quiet splash ---',
-        'safe graphics': 'file=/cdrom/preseed/ubuntu.seed maybe-ubiquity quiet splash nomodeset ---',
-        # there's also an OEM install option that adds oem-config/enable=true and replaces maybe-ubiquity with only-ubiquity
-    },
+    # if you wish to override a command line, or if the autodetection doesn't work,
+    # you can do it like this:
+    'ubuntu-16.04.6-server-amd64.iso': 'file=/cdrom/preseed/ubuntu-server.seed quiet ---',
 }
 
 KVM_OK = "Tested in KVM, works"
 KVM_DESKTOP_OK = "Tested in KVM, works (boots into live session)"
 KVM_SERVER_OK = "Tested in KVM, works (boots, haven't tried to complete installation)"
 TEST_STATUS = {
+    # images I have tested personally
     'ubuntu-20.04-desktop-amd64.iso': KVM_OK,
     'ubuntu-20.04-live-server-amd64.iso': KVM_OK,
     'ubuntu-19.10-desktop-amd64.iso': KVM_DESKTOP_OK,
@@ -64,6 +59,7 @@ TEST_STATUS = {
     'ubuntu-18.04.3-live-server-amd64.iso': KVM_OK,
     'ubuntu-18.04.4-live-server-amd64.iso': KVM_OK,
     'ubuntu-16.04.6-desktop-i386.iso': KVM_DESKTOP_OK,
+    # and this is why overriding the command line can be futile, when autodetection doesn't work:
     'ubuntu-16.04.6-server-amd64.iso': 'Does not work',
 }
 
@@ -72,9 +68,8 @@ menuentry "{title}" {{
     # {test_status}
     set isofile="/ubuntu/{isofile}"
     loopback loop $isofile
-    # {comment}
-    linux (loop)/casper/vmlinuz iso-scan/filename=$isofile {cmdline}
-    initrd (loop)/casper/{initrd}
+    linux (loop){kernel} iso-scan/filename=$isofile {cmdline}
+    initrd (loop){initrd}
 }}
 
 """.lstrip()
@@ -86,45 +81,22 @@ submenu "{title} >" {{
 
 }} # end of submenu
 
-"""
+""".lstrip()
 
 FOOTER = """
-##submenu "Firmware upgrade images >" {
-##
-##menuentry "Lenovo ThinkPad X200 BIOS update bootable CD (version 3.21)" {
-##    # Works!
-##    # See also: /boot/x200-bios/*.iso
-##    # See also: http://www.donarmstrong.com/posts/x200_bios_update/
-##    set memdisk="/boot/syslinux-memdisk"
-##    set imgfile="/boot/lenovo-thinkpad-x200-bios.img"
-##    linux16 $memdisk
-##    initrd16 $imgfile
-##}
-##
-##menuentry "Lenovo ThinkPad X200 BIOS update bootable CD (version 3.21) - alternative boot method" {
-##    # Not tested
-##    set memdisk="/boot/syslinux-memdisk"
-##    set isofile="/boot/x200-bios/6duj46uc.iso"
-##    linux16 $memdisk iso
-##    initrd16 $isofile
-##}
-##
-##menuentry "Intel SSD firmware update (version 1.92)" {
-##    set memdisk="/boot/syslinux-memdisk"
-##    set imgfile="/boot/intel-ssd-firmware.img"
-##    linux16 $memdisk
-##    initrd16 $imgfile
-##}
-##
-##} # end of submenu
-
 menuentry "Memory test (memtest86+)" {
     linux16 /boot/mt86plus
 }
-"""
+""".lstrip()
+
+
+class Error(Exception):
+    pass
 
 
 def find_iso_files(where):
+    # We want to sort by Ubuntu version, in descending order, and then by image
+    # type, in ascending alphabetical order.
     return sorted(
         sorted(fn for fn in os.listdir(where) if fn.endswith('.iso')),
         key=lambda fn: fn.split('-')[:2],
@@ -153,14 +125,16 @@ def group_files(files):
     return groups
 
 
-def make_grub_cfg(entries):
+def make_grub_cfg(entries, isodir):
     parts = [HEADER]
-    for entry in entries:
-        if isinstance(entry, list):
-            title = mkgrouptitle(entry)
-            parts.append(mksubmenu(title, map(mkentry, entry)))
+    for entry_or_group in entries:
+        if isinstance(entry_or_group, list):
+            title = mkgrouptitle(entry_or_group)
+            parts.append(mksubmenu(title, [
+                mkentry(entry, isodir) for entry in entry_or_group
+            ]))
         else:
-            parts.append(mkentry(entry))
+            parts.append(mkentry(entry_or_group, isodir))
     parts.append(FOOTER)
     return ''.join(parts)
 
@@ -180,23 +154,32 @@ def mksubmenu(title, entries):
     )
 
 
-def mkentry(isofile):
-    return ENTRY.format(
-        isofile=isofile,
-        title=mktitle(isofile),
-        test_status=mkteststatus(isofile),
-        comment=mkcomment(isofile),
-        cmdline=mkcmdline(isofile),
-        initrd='initrd',  # some older releases had initrd.gz
-    ).replace('\n    # \n', '\n')  # remove empty comments
+def mkentry(isofile, isodir):
+    try:
+        return ENTRY.format(
+            isofile=isofile,
+            title=mktitle(isofile),
+            test_status=mkteststatus(isofile),
+            cmdline=mkcmdline(isofile, isodir),
+            kernel='/casper/vmlinuz',
+            initrd='/casper/initrd',  # some older releases had initrd.gz
+        ).replace('\n    # \n', '\n')  # remove empty comments
+    except Error as err:
+        print(f"skipping {isofile}: {err}", file=sys.stderr)
+        return ''
 
 
 def mktitle(isofile):
     # ubuntu-XX.XX-variant-arch.iso
-    ubuntu, release, rest = isofile.rpartition('.')[0].split('-', 2)
-    variant, arch = rest.rsplit('-', 1)
-    if is_lts(release):
-        release += ' LTS'
+    try:
+        ubuntu, release, rest = isofile.rpartition('.')[0].split('-', 2)
+        if ubuntu != 'ubuntu':
+            raise ValueError
+        variant, arch = rest.rsplit('-', 1)
+        if is_lts(release):
+            release += ' LTS'
+    except ValueError:
+        raise Error(f'filename does not look like ubuntu-XX.XX-variant-arch.iso')
     return f'Ubuntu {release} ({ARCHS.get(arch, arch)} {VARIANTS.get(variant, variant)})'
 
 
@@ -211,18 +194,55 @@ def get_test_status(isofile):
     return test_status
 
 
-def mkcomment(isofile):
-    if '-desktop-' in isofile:
-        return 'NB: add only-ubiquity to kernel command line prior to --- to launch just the installer'
-    return ''
-
-
-def mkcmdline(isofile):
+def mkcmdline(isofile, isodir):
     # too risky to guess
-    cmdline = KNOWN_COMMAND_LINES[isofile]
+    if isofile in KNOWN_COMMAND_LINES:
+        cmdline = KNOWN_COMMAND_LINES[isofile]
+    else:
+        cmdline = extract_command_line_from_iso(os.path.join(isodir, isofile))
+
     if isinstance(cmdline, dict):
         cmdline = cmdline[None]
     return cmdline
+
+
+def extract_command_line_from_iso(isofile):
+    from parseiso import parse_iso, FormatError
+    try:
+        with parse_iso(isofile) as walker:
+            grub_cfg = walker.read('/boot/grub/grub.cfg').decode('UTF-8', 'replace')
+    except (OSError, FormatError) as e:
+        raise Error(str(e))
+    return extract_command_line_from_grub_cfg(grub_cfg)
+
+
+def extract_command_line_from_grub_cfg(grub_cfg_text):
+    rejected = []
+    for menuentry, linux, kernel, cmdline in extract_grub_menu(grub_cfg_text):
+        if (linux, kernel) == ('linux', '/casper/vmlinuz'):
+            return cmdline
+        rejected.append((menuentry, f"{linux} {kernel} {cmdline}"))
+    error = 'could not find a suitable kernel command line in grub.cfg inside the ISO image'
+    if rejected:
+        error += '\nrejected, because they use the wrong kernel (not /casper/vmlinuz):\n'
+        for menuentry, line in rejected:
+            error += f'  menuentry "{menuentry}"\n    {line}\n'
+        error += 'if you want to use one of these, edit mkgrubcfg.py and modify KNOWN_COMMAND_LINES'
+    raise Error(error)
+
+
+def extract_grub_menu(grub_cfg_text):
+    menuentry_rx = re.compile(r'^\s*menuentry\s+"([^"]+)"')
+    linux_rx = re.compile(r'^\s*(linux|linux16)\s+(\S+)\s+(\S.*)')
+    menuentry = None
+    for line in grub_cfg_text.splitlines():
+        m = menuentry_rx.match(line)
+        if m:
+            menuentry = m.group(1)
+        m = linux_rx.match(line)
+        if m:
+            linux, kernel, cmdline = m.groups()
+            yield (menuentry, linux, kernel, cmdline)
 
 
 def is_lts(release):
@@ -252,17 +272,21 @@ def main():
     parser.add_argument("-o", metavar='FILENAME', dest='outfile', default="-",
                         help="write the generated grub.cfg to this file (default: stdout)")
     args = parser.parse_args()
-    iso_files = find_iso_files(args.iso_dir)
-    groups = group_files(iso_files)
-    if args.list:
-        print_groups(groups)
-        return
-    grub_cfg = make_grub_cfg(groups)
-    if args.outfile != '-':
-        with open(args.outfile, 'w') as f:
-            f.write(grub_cfg)
-    else:
-        print(grub_cfg, end="")
+
+    try:
+        iso_files = find_iso_files(args.iso_dir)
+        groups = group_files(iso_files)
+        if args.list:
+            print_groups(groups)
+            return
+        grub_cfg = make_grub_cfg(groups, args.iso_dir)
+        if args.outfile != '-':
+            with open(args.outfile, 'w') as f:
+                f.write(grub_cfg)
+        else:
+            print(grub_cfg, end="")
+    except Error as e:
+        sys.exit(str(e))
 
 
 if __name__ == "__main__":
