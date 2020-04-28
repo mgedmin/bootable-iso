@@ -1,0 +1,86 @@
+#
+# Notes for adding new entries:
+# - launch mc, find the iso, press Enter
+# - inside the ISO find /boot/grub/grub.cfg, look inside
+#   be sure to add iso-scan/filename=$isofile before the -- or ---
+#   (some ISOs have a loopback.cfg that already have this)
+#
+# Testing in KVM:
+# - udisksctl unmount -b /dev/sdb1
+# - sudo setfacl -m user:$USER:rw /dev/sdb
+# - kvm -m 2048 -k en-us -drive format=raw,file=/dev/sdb
+#   (if arrow keys don't work in the GRUB menu, use Ctrl-N/P)
+# - udisksctl mount -b /dev/sdb1
+#
+
+
+submenu "Ubuntu 20.04 LTS >" {
+
+menuentry "Ubuntu 20.04 LTS (x86-64 desktop livecd)" {
+    # Untested
+    set isofile="/ubuntu/ubuntu-20.04-desktop-amd64.iso"
+    loopback loop $isofile
+    # NB: add only-ubiquity to kernel command line prior to --- to launch just the installer
+    linux (loop)/casper/vmlinuz iso-scan/filename=$isofile file=/cdrom/preseed/ubuntu.seed maybe-ubiquity quiet splash ---
+    initrd (loop)/casper/initrd
+}
+
+menuentry "Ubuntu 20.04 LTS (x86-64 server livecd)" {
+    # Untested
+    set isofile="/ubuntu/ubuntu-20.04-live-server-amd64.iso"
+    loopback loop $isofile
+    linux (loop)/casper/vmlinuz iso-scan/filename=$isofile quiet ---
+    initrd (loop)/casper/initrd
+}
+
+} # end of submenu
+
+menuentry "Ubuntu 18.04.4 LTS (x86-64 server livecd)" {
+    # Untested
+    set isofile="/ubuntu/ubuntu-18.04.4-live-server-amd64.iso"
+    loopback loop $isofile
+    linux (loop)/casper/vmlinuz iso-scan/filename=$isofile boot=casper quiet ---
+    initrd (loop)/casper/initrd
+}
+
+menuentry "Ubuntu 16.04.6 LTS (x86-64 server)" {
+    # Untested
+    set isofile="/ubuntu/ubuntu-16.04.6-server-amd64.iso"
+    loopback loop $isofile
+    linux (loop)/casper/vmlinuz iso-scan/filename=$isofile file=/cdrom/preseed/ubuntu-server.seed boot=casper quiet ---
+    initrd (loop)/casper/initrd
+}
+
+
+##submenu "Firmware upgrade images >" {
+##
+##menuentry "Lenovo ThinkPad X200 BIOS update bootable CD (version 3.21)" {
+##    # Works!
+##    # See also: /boot/x200-bios/*.iso
+##    # See also: http://www.donarmstrong.com/posts/x200_bios_update/
+##    set memdisk="/boot/syslinux-memdisk"
+##    set imgfile="/boot/lenovo-thinkpad-x200-bios.img"
+##    linux16 $memdisk
+##    initrd16 $imgfile
+##}
+##
+##menuentry "Lenovo ThinkPad X200 BIOS update bootable CD (version 3.21) - alternative boot method" {
+##    # Not tested
+##    set memdisk="/boot/syslinux-memdisk"
+##    set isofile="/boot/x200-bios/6duj46uc.iso"
+##    linux16 $memdisk iso
+##    initrd16 $isofile
+##}
+##
+##menuentry "Intel SSD firmware update (version 1.92)" {
+##    set memdisk="/boot/syslinux-memdisk"
+##    set imgfile="/boot/intel-ssd-firmware.img"
+##    linux16 $memdisk
+##    initrd16 $imgfile
+##}
+##
+##} # end of submenu
+
+menuentry "Memory test (memtest86+)" {
+    linux16 /boot/mt86plus
+}

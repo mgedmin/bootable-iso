@@ -8,3 +8,5 @@ grubenv
 *.o
 *.lst
 grub.cfg
+__pycache__
+.mypy_cache/
