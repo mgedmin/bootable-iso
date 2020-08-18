@@ -10,3 +10,4 @@ grubenv
 grub.cfg
 __pycache__
 .mypy_cache/
+grub.cfg.old
