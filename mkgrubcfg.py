@@ -21,11 +21,8 @@ HEADER = """
 # - run python3 mkgrubcfg.py -o grub.cfg
 #
 # Testing in KVM (assuming this USB drive is mounted as /dev/sdb1):
-# - udisksctl unmount -b /dev/sdb1
-# - sudo setfacl -m user:$USER:rw /dev/sdb
-# - kvm -m 2048 -k en-us -drive format=raw,file=/dev/sdb
+# - run sh kvmboot /dev/sdb1
 #   (if arrow keys don't work in the GRUB menu, use Ctrl-N/P)
-# - udisksctl mount -b /dev/sdb1
 #
 
 """.lstrip()
@@ -44,6 +41,9 @@ KNOWN_COMMAND_LINES = {
     # if you wish to override a command line, or if the autodetection doesn't work,
     # you can do it like this:
     'ubuntu-16.04.6-server-amd64.iso': 'file=/cdrom/preseed/ubuntu-server.seed quiet ---',
+    # NB: this is pointless for ubuntu 16.04 LTS images, they're known not to work:
+    # they don't use casper, and debian-instaler doesn't know about iso-scan/filename=
+    # and so the installation fails a couple of steps in when it fails to find the .deb files
 }
 
 KVM_OK = "Tested in KVM, works"
@@ -53,11 +53,14 @@ TEST_STATUS = {
     # images I have tested personally
     'ubuntu-20.04-desktop-amd64.iso': KVM_OK,
     'ubuntu-20.04-live-server-amd64.iso': KVM_OK,
+    'ubuntu-20.04.1-desktop-amd64.iso': KVM_DESKTOP_OK,
+    'ubuntu-20.04.1-live-server-amd64.iso': KVM_SERVER_OK,
     'ubuntu-19.10-desktop-amd64.iso': KVM_DESKTOP_OK,
     'ubuntu-18.04.3-desktop-amd64.iso': KVM_DESKTOP_OK,
     'ubuntu-18.04.4-desktop-amd64.iso': KVM_DESKTOP_OK,
     'ubuntu-18.04.3-live-server-amd64.iso': KVM_OK,
     'ubuntu-18.04.4-live-server-amd64.iso': KVM_OK,
+    'ubuntu-18.04.5-live-server-amd64.iso': KVM_SERVER_OK,
     'ubuntu-16.04.6-desktop-i386.iso': KVM_DESKTOP_OK,
     # and this is why overriding the command line can be futile, when autodetection doesn't work:
     'ubuntu-16.04.6-server-amd64.iso': 'Does not work',

@@ -1,0 +1,11 @@
+#!/bin/sh
+
+DEVICE=${1:-/dev/sda1}
+ENTIRE_DEVICE=${DEVICE%%[0-9]}
+USER=$(id -u)
+
+set -x
+udisksctl unmount -b "$DEVICE" || exit 1
+sudo setfacl -m user:"$USER":r "$ENTIRE_DEVICE"
+kvm -m 2048 -k en-us -drive format=raw,if=virtio,readonly,file="$ENTIRE_DEVICE"
+udisksctl mount -b "$DEVICE"

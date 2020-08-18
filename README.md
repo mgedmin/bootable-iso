@@ -26,6 +26,9 @@ Creating a bootable USB disk that lets you boot any Ubuntu ISO image:
                       --efi-directory=/media/mg/MG-FLASH /dev/sdb
     ```
 
+   (be very careful not to forget `--removable`, or it'll overwrite your EFI
+   boot variables and your host machine will fail to boot!)
+
 4. Download Ubuntu ISO images you want
 
     ```
@@ -60,22 +63,10 @@ Testing with KVM
     udisksctl status
     ```
 
-2. Unmount the device
+2. Run
 
     ```
-    udisksctl unmount -b /dev/sdb1
+    sh kvmboot /dev/sdb1
     ```
 
-3. Boot it in KVM
-
-    ```
-    sudo setfacl -m user:$USER:rw /dev/sdb
-    kvm -m 2048 -k en-us -drive format=raw,file=/dev/sdb
-    ```
-
-4. When you're done testing, mount the device again with
-
-    ```
-    udisksctl mount -b /dev/sdb1
-    ```
-
+3. Record the test results in mkgrubcfg.py
