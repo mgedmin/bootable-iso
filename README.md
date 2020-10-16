@@ -70,3 +70,9 @@ Testing with KVM
     ```
 
 3. Record the test results in mkgrubcfg.py
+
+
+Other resources
+---------------
+
+- https://help.ubuntu.com/community/Grub2/ISOBoot
