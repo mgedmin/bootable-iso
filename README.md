@@ -76,3 +76,6 @@ Other resources
 ---------------
 
 - https://help.ubuntu.com/community/Grub2/ISOBoot
+
+- You may be interested in [Ventoy](https://www.ventoy.net/), which seems a
+  much more polished and capable solution for this kind of thing.
